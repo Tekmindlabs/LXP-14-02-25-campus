@@ -2,8 +2,8 @@ import { useState } from "react";
 import { api } from "@/utils/api";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
-import { BuildingForm } from "./BuildingForm";
-import { useToast } from "@/components/ui/use-toast";
+import { BuildingForm } from "@/components/dashboard/building/BuildingForm";
+import { useToast } from "../../../hooks/use-toast";
 import type { Building } from "@prisma/client";
 import {
 	DropdownMenu,
@@ -17,42 +17,8 @@ type RowType = {
 	original: Building;
 };
 
-
-
-
-	const columns = [
-	{
-		accessorKey: "name",
-		header: "Name",
-	},
-	{
-		accessorKey: "code",
-		header: "Code",
-	},
-	{
-		id: "actions",
-		cell: ({ row }: { row: RowType }) => {
-			const building = row.original;
-			return (
-				<DropdownMenu>
-					<DropdownMenuTrigger>
-						<MoreHorizontal className="h-4 w-4" />
-					</DropdownMenuTrigger>
-					<DropdownMenuContent>
-						<DropdownMenuItem onClick={() => handleEdit(building)}>
-							Edit
-						</DropdownMenuItem>
-						<DropdownMenuItem onClick={() => handleDelete(building.id)}>
-							Delete
-						</DropdownMenuItem>
-					</DropdownMenuContent>
-				</DropdownMenu>
-			);
-		},
-	},
-];
-
 export const BuildingManagement = () => {
+
 	const [isFormOpen, setIsFormOpen] = useState(false);
 	const [selectedBuilding, setSelectedBuilding] = useState<Building | null>(null);
 	const { toast } = useToast();
@@ -85,34 +51,63 @@ export const BuildingManagement = () => {
 		}
 	};
 
+	const columns = [
+		{
+			accessorKey: "name",
+			header: "Name",
+		},
+		{
+			accessorKey: "code",
+			header: "Code",
+		},
+		{
+			id: "actions",
+			cell: ({ row }: { row: RowType }) => {
+				const building = row.original;
+				return (
+					<DropdownMenu>
+						<DropdownMenuTrigger>
+							<MoreHorizontal className="h-4 w-4" />
+						</DropdownMenuTrigger>
+						<DropdownMenuContent>
+							<DropdownMenuItem onClick={() => handleEdit(building)}>
+								Edit
+							</DropdownMenuItem>
+							<DropdownMenuItem onClick={() => handleDelete(building.id)}>
+								Delete
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
+				);
+			},
+		},
+	];
+
 	return (
 		<div className="container mx-auto py-6">
-			<div className="flex justify-between items-center mb-6">
-				<h1 className="text-2xl font-bold">Buildings</h1>
-				<Button onClick={() => setIsFormOpen(true)}>
-					<Plus className="mr-2 h-4 w-4" />
-					Add Building
-				</Button>
-			</div>
+		  <div className="flex justify-between items-center mb-6">
+			<h1 className="text-2xl font-bold">Buildings</h1>
+			<Button onClick={() => setIsFormOpen(true)}>
+			  <Plus className="mr-2 h-4 w-4" />
+			  Add Building
+			</Button>
+		  </div>
 
-			<DataTable
-				columns={columns}
-				data={buildings || []}
-			/>
+		  <DataTable columns={columns} data={buildings || []} />
 
-			<BuildingForm
-				isOpen={isFormOpen}
-				onClose={() => {
-					setIsFormOpen(false);
-					setSelectedBuilding(null);
-				}}
-				building={selectedBuilding}
-				onSuccess={() => {
-					setIsFormOpen(false);
-					setSelectedBuilding(null);
-					refetch();
-				}}
-			/>
+		  <BuildingForm
+			isOpen={isFormOpen}
+			onClose={() => {
+			  setIsFormOpen(false);
+			  setSelectedBuilding(null);
+			}}
+			building={selectedBuilding}
+			onSuccess={() => {
+			  setIsFormOpen(false);
+			  setSelectedBuilding(null);
+			  refetch();
+			}}
+		  />
 		</div>
-	);
-};
+	  );
+	};

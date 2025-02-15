@@ -2,8 +2,8 @@ import { useState } from "react";
 import { api } from "@/utils/api";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
-import { WingForm } from "./WingForm";
-import { useToast } from "@/components/ui/use-toast";
+import { WingForm } from "@/components/dashboard/building/WingForm";
+import { useToast } from "@/hooks/use-toast";
 import type { Wing } from "@prisma/client";
 import {
 	DropdownMenu,

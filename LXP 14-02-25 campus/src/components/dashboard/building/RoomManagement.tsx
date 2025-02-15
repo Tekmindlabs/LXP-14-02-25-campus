@@ -3,8 +3,8 @@ import { api } from "@/utils/api";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import { EnhancedClassroomForm } from "../classroom/EnhancedClassroomForm";
-import { useToast } from "@/components/ui/use-toast";
-import type { Room } from "@prisma/client";
+import { useToast } from "../../../hooks/use-toast";
+import type { Room, RoomStatus } from "@prisma/client";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -18,9 +18,16 @@ interface RoomManagementProps {
 	wingId: string;
 }
 
-interface DataTableRow {
+type DataTableRow = {
 	original: Room;
-}
+};
+
+type Column = {
+	accessorKey?: string;
+	id?: string;
+	header: string;
+	cell?: ({ row }: { row: DataTableRow }) => React.ReactNode;
+};
 
 
 export const RoomManagement = ({ wingId }: RoomManagementProps) => {
@@ -56,7 +63,7 @@ export const RoomManagement = ({ wingId }: RoomManagementProps) => {
 		}
 	};
 
-	const columns = [
+	const columns: Column[] = [
 		{
 			accessorKey: "number",
 			header: "Room Number",
@@ -64,7 +71,7 @@ export const RoomManagement = ({ wingId }: RoomManagementProps) => {
 		{
 			accessorKey: "type",
 			header: "Type",
-			cell: ({ row }: { row: DataTableRow }) => {
+			cell: ({ row }) => {
 				const type = row.original.type;
 				return type.replace(/_/g, " ");
 			},
@@ -76,7 +83,7 @@ export const RoomManagement = ({ wingId }: RoomManagementProps) => {
 		{
 			accessorKey: "status",
 			header: "Status",
-			cell: ({ row }: { row: DataTableRow }) => {
+			cell: ({ row }) => {
 				const status = row.original.status;
 				return (
 					<Badge variant={status === "ACTIVE" ? "success" : "destructive"}>
@@ -87,7 +94,8 @@ export const RoomManagement = ({ wingId }: RoomManagementProps) => {
 		},
 		{
 			id: "actions",
-			cell: ({ row }: { row: DataTableRow }) => {
+			header: "Actions",
+			cell: ({ row }) => {
 				const room = row.original;
 				return (
 					<DropdownMenu>
