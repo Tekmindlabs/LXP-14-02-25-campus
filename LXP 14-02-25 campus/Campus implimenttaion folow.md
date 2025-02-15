@@ -14,6 +14,9 @@ graph TD
     A --> F[Programs]
     F --> G[Class Groups]
     G --> H[Subjects/Curriculum]
+    G --> I[Messegine System]
+    G --> J[Notifications]
+
 ```
 
 2. Then at each SCHOOL BUILDING (Campus):
@@ -24,25 +27,45 @@ graph TD
     I --> L[Campus Classes]
     I --> M[Campus Gradebooks]
     I --> N[Campus Attendance]
+        I --> O[CampusClassrooms]
+            I --> P[Campus Timetable]
+                Q --> N[Campus Notifications]
+                R[Campus Notifications]
 ```
 
-3. How they CONNECT:
-```mermaid
+
+    User Experience Portals:
+
+mermaid
+
 graph TD
-    A[Institute Level] --> B[Central Database]
-    A --> C[Campus 1]
-    A --> D[Campus 2]
-    A --> E[Campus 3]
-    
-    B --> F[Students]
-    B --> G[Teachers]
-    B --> H[Gradebooks]
-    B --> I[Attendance]
-    
-    C --> J[Campus 1 View]
-    D --> K[Campus 2 View]
-    E --> L[Campus 3 View]
-```
+
+    A[Personalized Portals] --> B[Teacher Portal]
+
+    A --> C[Student Portal]
+
+    A --> D[Parent Portal]
+
+    A --> E[Admin Portal]
+
+    A --> F[Program Coordinator Portal]
+
+3. How they CONNECT:
+
+
+
+
+
+
+Communication System
+
+    Internal messaging
+    Parent-teacher communication
+    Announcement broadcasts
+
+Notifications System
+
+
 
 Real-world example:
 1. When a new student joins:

@@ -129,6 +129,7 @@ model Room {
   capacity    Int
   status      RoomStatus
   resources   Json?
+  periods     Period[]
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 }
@@ -832,8 +833,10 @@ model Period {
   dayOfWeek         Int // 1-7 representing Monday-Sunday
   subject           Subject        @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   subjectId         String
-  classroom         Classroom      @relation(fields: [classroomId], references: [id], onDelete: Cascade)
-  classroomId       String
+  classroom         Classroom?     @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  classroomId       String?
+  room              Room?          @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  roomId            String?
   timetable         Timetable      @relation(fields: [timetableId], references: [id], onDelete: Cascade)
   timetableId       String
   teacher           TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
@@ -846,6 +849,7 @@ model Period {
   @@unique([classroomId, dayOfWeek, startTime])
   @@index([subjectId])
   @@index([classroomId])
+  @@index([roomId])
   @@index([timetableId])
   @@index([teacherId])
 }
@@ -865,15 +869,8 @@ model BreakTime {
   @@map("break_times")
 }
 
-model Classroom {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  capacity  Int
-  resources String? // JSON string of available resources
-  periods   Period[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
+
+
 
 // Communication Models
 model Notification {
@@ -1490,6 +1487,17 @@ model BrandKit {
   updatedAt    DateTime @updatedAt
 
   @@map("brand_kits")
+}
+
+// Keep the Classroom model for now
+model Classroom {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  capacity  Int
+  resources String? // JSON string of available resources
+  periods   Period[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // Term Management Models

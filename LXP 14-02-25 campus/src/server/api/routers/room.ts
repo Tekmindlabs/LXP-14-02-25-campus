@@ -3,6 +3,15 @@ import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { roomSchema, roomIdSchema, updateRoomSchema } from "../validation/room";
 import { TRPCError } from "@trpc/server";
 import { RoomStatus, RoomType } from "@prisma/client";
+import { RoomSchedulingService } from "../../services/RoomSchedulingService";
+import { RoomResourceService } from "../../services/RoomResourceService";
+import { RoomReportingService } from "../../services/RoomReportingService";
+import { RoomCache } from "@/lib/cache/RoomCache";
+
+const roomCache = new RoomCache();
+const schedulingService = new RoomSchedulingService();
+const resourceService = new RoomResourceService();
+const reportingService = new RoomReportingService();
 
 export const roomRouter = createTRPCRouter({
 	create: protectedProcedure
@@ -11,6 +20,7 @@ export const roomRouter = createTRPCRouter({
 			const room = await ctx.prisma.room.create({
 				data: input,
 			});
+			await roomCache.set(room.id, room);
 			return room;
 		}),
 
@@ -27,7 +37,7 @@ export const roomRouter = createTRPCRouter({
 				...(input.status && { status: input.status }),
 			};
 			
-			return ctx.prisma.room.findMany({
+			const rooms = await ctx.prisma.room.findMany({
 				where,
 				include: {
 					wing: {
@@ -44,11 +54,16 @@ export const roomRouter = createTRPCRouter({
 					number: 'asc',
 				},
 			});
+			await roomCache.setMany(rooms);
+			return rooms;
 		}),
 
 	getById: protectedProcedure
 		.input(roomIdSchema)
 		.query(async ({ ctx, input }) => {
+			const cached = await roomCache.get(input.id);
+			if (cached) return cached;
+
 			const room = await ctx.prisma.room.findUnique({
 				where: { id: input.id },
 				include: {
@@ -71,6 +86,7 @@ export const roomRouter = createTRPCRouter({
 				});
 			}
 
+			await roomCache.set(room.id, room);
 			return room;
 		}),
 
@@ -84,6 +100,7 @@ export const roomRouter = createTRPCRouter({
 				where: { id: input.id },
 				data: input.data,
 			});
+			await roomCache.set(room.id, room);
 			return room;
 		}),
 
@@ -97,6 +114,7 @@ export const roomRouter = createTRPCRouter({
 				where: { id: input.id },
 				data: { status: input.status },
 			});
+			await roomCache.set(room.id, room);
 			return room;
 		}),
 
@@ -106,6 +124,93 @@ export const roomRouter = createTRPCRouter({
 			await ctx.prisma.room.delete({
 				where: { id: input.id },
 			});
+			await roomCache.invalidate(input.id);
 			return { success: true };
+		}),
+
+	// Batch operations
+	batchCreate: protectedProcedure
+		.input(z.array(roomSchema))
+		.mutation(async ({ ctx, input }) => {
+			const rooms = await ctx.prisma.$transaction(
+				input.map(room => ctx.prisma.room.create({ data: room }))
+			);
+			await roomCache.setMany(rooms);
+			return rooms;
+		}),
+
+	batchUpdate: protectedProcedure
+		.input(z.array(z.object({
+			id: z.string(),
+			data: updateRoomSchema,
+		})))
+		.mutation(async ({ ctx, input }) => {
+			const rooms = await ctx.prisma.$transaction(
+				input.map(({ id, data }) => 
+					ctx.prisma.room.update({ where: { id }, data })
+				)
+			);
+			await roomCache.setMany(rooms);
+			return rooms;
+		}),
+
+	// Scheduling endpoints
+	checkAvailability: protectedProcedure
+		.input(z.object({
+			roomId: z.string(),
+			startTime: z.date(),
+			endTime: z.date(),
+			dayOfWeek: z.number().min(1).max(7),
+		}))
+		.query(async ({ input }) => {
+			return schedulingService.checkRoomAvailability(
+				input.roomId,
+				input.startTime,
+				input.endTime,
+				input.dayOfWeek
+			);
+		}),
+
+	// Resource management endpoints
+	updateResources: protectedProcedure
+		.input(z.object({
+			roomId: z.string(),
+			resources: z.array(z.object({
+				type: z.enum(['PROJECTOR', 'COMPUTER', 'WHITEBOARD', 'AUDIO_SYSTEM']),
+				quantity: z.number().min(1),
+				status: z.enum(['AVAILABLE', 'IN_USE', 'MAINTENANCE']),
+				metadata: z.record(z.string(), z.any()).optional(),
+			}))
+		}))
+		.mutation(async ({ input }) => {
+			await resourceService.updateRoomResources(input.roomId, input.resources);
+			await roomCache.invalidate(input.roomId);
+			return { success: true };
+		}),
+
+	// Reporting endpoints
+	generateUsageReport: protectedProcedure
+		.input(z.object({
+			startDate: z.date(),
+			endDate: z.date(),
+		}))
+		.query(async ({ input }) => {
+			return reportingService.generateUsageReport({ 
+				startDate: input.startDate, 
+				endDate: input.endDate 
+			});
+		}),
+
+	generateUtilizationReport: protectedProcedure
+		.input(z.object({
+			roomId: z.string(),
+		}))
+		.query(async ({ input }) => {
+			return reportingService.generateResourceUtilizationReport(input.roomId);
+		}),
+
+	generateMaintenanceReport: protectedProcedure
+		.query(async () => {
+			return reportingService.generateMaintenanceReport();
 		}),
 });

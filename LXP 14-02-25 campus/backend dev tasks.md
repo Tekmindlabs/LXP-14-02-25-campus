@@ -190,6 +190,172 @@ The building management system provides a hierarchical structure for organizing 
 
 ## Usage
 [Documentation details]
+
+8. Integration Features and Performance Optimizations:
+
+a. Classroom Scheduling Integration:
+```typescript
+// src/server/services/RoomSchedulingService.ts
+export class RoomSchedulingService {
+  // Room availability checking
+  async checkRoomAvailability(roomId: string, startTime: DateTime, endTime: DateTime): Promise<boolean>;
+  
+  // Conflict detection
+  async detectScheduleConflicts(scheduleRequest: ScheduleRequest): Promise<Conflict[]>;
+  
+  // Batch scheduling operations
+  async batchScheduleRooms(requests: ScheduleRequest[]): Promise<ScheduleResult[]>;
+}
 ```
 
-Would you like me to elaborate on any specific part of this implementation plan?
+b. Enhanced Resource Management:
+```typescript
+// src/server/services/RoomResourceService.ts
+export class RoomResourceService {
+  // Resource tracking and management
+  async updateRoomResources(roomId: string, resources: ResourceUpdate[]): Promise<void>;
+  
+  // Resource availability checking
+  async checkResourceAvailability(resourceType: string, quantity: number): Promise<AvailabilityResult>;
+  
+  // Resource allocation and deallocation
+  async allocateResources(request: ResourceAllocationRequest): Promise<AllocationResult>;
+}
+
+// Resource types and validation
+const resourceSchema = z.object({
+  type: z.enum(['PROJECTOR', 'COMPUTER', 'WHITEBOARD', 'AUDIO_SYSTEM']),
+  quantity: z.number().min(1),
+  status: z.enum(['AVAILABLE', 'IN_USE', 'MAINTENANCE']),
+  metadata: z.record(z.string(), z.any()).optional(),
+});
+```
+
+c. Reporting System Integration:
+```typescript
+// src/server/services/RoomReportingService.ts
+export class RoomReportingService {
+  // Usage analytics
+  async generateUsageReport(timeRange: DateRange): Promise<UsageReport>;
+  
+  // Resource utilization
+  async generateResourceUtilizationReport(roomId: string): Promise<UtilizationReport>;
+  
+  // Maintenance scheduling
+  async generateMaintenanceReport(): Promise<MaintenanceReport>;
+}
+```
+
+d. Performance Optimizations:
+
+1. Batch Operations:
+```typescript
+// src/server/api/routers/room.ts
+export const roomRouter = createTRPCRouter({
+  batchCreate: protectedProcedure
+    .input(z.array(roomSchema))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.prisma.$transaction(
+        input.map(room => ctx.prisma.room.create({ data: room }))
+      );
+    }),
+
+  batchUpdate: protectedProcedure
+    .input(z.array(updateRoomSchema))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.prisma.$transaction(
+        input.map(({ id, data }) => 
+          ctx.prisma.room.update({ where: { id }, data })
+        )
+      );
+    }),
+});
+```
+
+2. Caching Implementation:
+```typescript
+// src/lib/cache/RoomCache.ts
+export class RoomCache {
+  private cache: Map<string, CachedRoom>;
+  private readonly ttl: number;
+
+  constructor(ttl = 5 * 60 * 1000) { // 5 minutes default TTL
+    this.cache = new Map();
+    this.ttl = ttl;
+  }
+
+  async get(roomId: string): Promise<CachedRoom | null>;
+  async set(roomId: string, room: Room): Promise<void>;
+  async invalidate(roomId: string): Promise<void>;
+}
+
+// Implementation in room router
+export const roomRouter = createTRPCRouter({
+  getById: protectedProcedure
+    .input(roomIdSchema)
+    .query(async ({ ctx, input }) => {
+      // Check cache first
+      const cached = await ctx.roomCache.get(input.id);
+      if (cached) return cached;
+
+      // If not in cache, fetch from database
+      const room = await ctx.prisma.room.findUnique({
+        where: { id: input.id },
+        include: { /* relations */ },
+      });
+
+      // Cache the result
+      if (room) await ctx.roomCache.set(input.id, room);
+      return room;
+    }),
+});
+```
+
+e. API Endpoints for Integration:
+```typescript
+// src/server/api/routers/room.ts
+export const roomRouter = createTRPCRouter({
+  // Scheduling endpoints
+  getAvailability: protectedProcedure
+    .input(availabilitySchema)
+    .query(async ({ ctx, input }) => {
+      return ctx.roomSchedulingService.checkRoomAvailability(input);
+    }),
+
+  // Resource management endpoints
+  updateResources: protectedProcedure
+    .input(resourceUpdateSchema)
+    .mutation(async ({ ctx, input }) => {
+      return ctx.roomResourceService.updateRoomResources(input);
+    }),
+
+  // Reporting endpoints
+  generateReport: protectedProcedure
+    .input(reportRequestSchema)
+    .query(async ({ ctx, input }) => {
+      return ctx.roomReportingService.generateReport(input);
+    }),
+});
+```
+
+f. Implementation Priority:
+1. Room Scheduling Integration
+   - Basic availability checking
+   - Conflict detection
+   - Schedule management
+
+2. Resource Management
+   - Resource tracking
+   - Availability management
+   - Allocation system
+
+3. Reporting System
+   - Usage analytics
+   - Resource utilization
+   - Maintenance tracking
+
+4. Performance Optimizations
+   - Batch operations
+   - Caching system
+   - Query optimizations
+
