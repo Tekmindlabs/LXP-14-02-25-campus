@@ -79,12 +79,73 @@ model Campus {
   email            String
   emergencyContact String
   
+  // Relations
+  buildings        Building[]
+  
   // Audit fields
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
 
   @@map("campuses")
 }
+
+model Building {
+  id          String      @id @default(cuid())
+  name        String
+  code        String      @unique
+  campusId    String
+  campus      Campus      @relation(fields: [campusId], references: [id])
+  floors      Floor[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model Floor {
+  id          String      @id @default(cuid())
+  number      Int
+  buildingId  String
+  building    Building    @relation(fields: [buildingId], references: [id])
+  wings       Wing[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model Wing {
+  id          String      @id @default(cuid())
+  name        String
+  floorId     String
+  floor       Floor       @relation(fields: [floorId], references: [id])
+  rooms       Room[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model Room {
+  id          String      @id @default(cuid())
+  number      String
+  wingId      String
+  wing        Wing        @relation(fields: [wingId], references: [id])
+  type        RoomType
+  capacity    Int
+  status      RoomStatus
+  resources   Json?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+enum RoomType {
+  CLASSROOM
+  LAB
+  ACTIVITY_ROOM
+  LECTURE_HALL
+}
+
+enum RoomStatus {
+  ACTIVE
+  MAINTENANCE
+  INACTIVE
+}
+
 
 enum CampusType {
   MAIN

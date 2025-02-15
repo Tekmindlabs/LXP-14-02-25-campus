@@ -2,6 +2,10 @@ import { createTRPCRouter } from "@/server/api/trpc";
 import { settingsRouter } from "./routers/settings";
 import { campusRouter } from "./routers/campus";
 import { userRouter } from "./routers/user";
+import { buildingRouter } from "./routers/building";
+import { floorRouter } from "./routers/floor";
+import { wingRouter } from "./routers/wing";
+import { roomRouter } from "./routers/room";
 import { curriculumRouter } from "./routers/curriculum";
 import { roleRouter } from "./routers/role";
 import { gradebookRouter } from "./routers/gradebook";
@@ -58,7 +62,12 @@ export const appRouter = createTRPCRouter({
   gradebook: gradebookRouter,
   assessment: assessmentRouter,
   curriculum: curriculumRouter,
+  building: buildingRouter,
+  floor: floorRouter,
+  wing: wingRouter,
+  room: roomRouter,
 });
+
 
 
 export type AppRouter = typeof appRouter;

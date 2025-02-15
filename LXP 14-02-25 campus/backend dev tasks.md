@@ -1,226 +1,195 @@
-Based on the provided codebase and requirements, I'll suggest a more aligned implementation that minimizes conflicts with the existing code. Here's a refined approach:
+Based on the provided codebase and requirements, let me analyze what's done and what needs to be implemented:
 
-1. First, let's extend the existing CurriculumNode interface in `/src/types/curriculum.ts`:
+CURRENT STATUS:
 
-```typescript
-// Add new interfaces for context types
-export interface NodeLearningContext {
-  objectives?: string[];
-  duration?: string;
-  prerequisites?: string[];
-  keyTerms?: string[];
-  outcomes?: string[];
+1. Basic Structure Implemented:
+- Campus Management (CampusManagement.tsx, CampusForm.tsx, CampusList.tsx)
+- Classroom Management (ClassroomManagement.tsx, ClassroomForm.tsx, ClassroomView.tsx)
+- Class Management (ClassManagement.tsx, ClassList.tsx)
+
+2. Existing Features:
+- Basic CRUD operations for campuses and classrooms
+- Simple resource management for classrooms
+- Basic scheduling system
+- Attendance tracking
+- Role-based access control
+
+WHAT NEEDS TO BE DONE:
+
+1. Database Schema Updates:
+```prisma
+model Building {
+  id          String      @id @default(cuid())
+  name        String
+  code        String      @unique
+  campusId    String
+  campus      Campus      @relation(fields: [campusId], references: [id])
+  floors      Floor[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 }
 
-export interface NodeResourceContext {
-  materials?: {
-    primary?: string[];
-    supplementary?: string[];
-  };
-  references?: string[];
+model Floor {
+  id          String      @id @default(cuid())
+  number      Int
+  buildingId  String
+  building    Building    @relation(fields: [buildingId], references: [id])
+  wings       Wing[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 }
 
-export interface NodeAssessmentContext {
-  methods?: string[];
-  criteria?: string[];
-  weightage?: number;
+model Wing {
+  id          String      @id @default(cuid())
+  name        String
+  floorId     String
+  floor       Floor       @relation(fields: [floorId], references: [id])
+  rooms       Room[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 }
 
-// Update CurriculumNode interface
-export interface CurriculumNode {
-  id: string;
-  title: string;
-  description?: string;
-  type: NodeType;
-  parentId?: string;
-  order: number;
-  subjectId: string;
-  
-  // Add new optional context fields
-  learningContext?: NodeLearningContext;
-  resourceContext?: NodeResourceContext;
-  assessmentContext?: NodeAssessmentContext;
-  
-  // Existing fields
-  resources: CurriculumResource[];
-  activities: CurriculumActivity[];
-  children?: CurriculumNode[];
-  createdAt: Date;
-  updatedAt: Date;
+model Room {
+  id          String      @id @default(cuid())
+  number      String
+  wingId      String
+  wing        Wing        @relation(fields: [wingId], references: [id])
+  type        RoomType
+  capacity    Int
+  status      RoomStatus
+  resources   Json?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+enum RoomType {
+  CLASSROOM
+  LAB
+  ACTIVITY_ROOM
+  LECTURE_HALL
+}
+
+enum RoomStatus {
+  ACTIVE
+  MAINTENANCE
+  INACTIVE
 }
 ```
 
-2. Update the NodeEditor component to include the new fields while maintaining compatibility:
+2. API Implementation:
 
 ```typescript
-// /src/components/dashboard/roles/super-admin/subject/curriculum/NodeEditor.tsx
-
-export const NodeEditor: React.FC<NodeEditorProps> = ({ node, onClose }) => {
-  // Existing state
-  const [title, setTitle] = useState(node.title);
-  const [description, setDescription] = useState(node.description || "");
-  const [type, setType] = useState<NodeType>(node.type);
-  const [parentId, setParentId] = useState<string | undefined>(node.parentId);
-
-  // New state for contexts
-  const [learningContext, setLearningContext] = useState<NodeLearningContext>(
-    node.learningContext || {}
-  );
-  const [resourceContext, setResourceContext] = useState<NodeResourceContext>(
-    node.resourceContext || {}
-  );
-  const [assessmentContext, setAssessmentContext] = useState<NodeAssessmentContext>(
-    node.assessmentContext || {}
-  );
-
-  // Update mutation to include new fields
-  const updateNode = api.curriculum.updateNode.useMutation({
-    onSuccess: () => {
-      utils.curriculum.getNodes.invalidate();
-      onClose?.();
-    }
-  });
-
-  const handleSave = async () => {
-    try {
-      await updateNode.mutateAsync({
-        id: node.id,
-        title,
-        description,
-        type,
-        parentId,
-        learningContext,
-        resourceContext,
-        assessmentContext
-      });
-    } catch (error) {
-      console.error("Failed to update node:", error);
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* Existing fields */}
-      <div className="space-y-4">
-        {/* Basic Information */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Title</label>
-          <Input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Enter node title"
-          />
-        </div>
-
-        {/* Learning Context Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Learning Context</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">Learning Objectives</label>
-              <Textarea
-                value={learningContext.objectives?.join('\n') || ''}
-                onChange={(e) => setLearningContext({
-                  ...learningContext,
-                  objectives: e.target.value.split('\n').filter(Boolean)
-                })}
-                placeholder="Enter objectives (one per line)"
-              />
-            </div>
-            {/* Add similar fields for other learning context items */}
-          </CardContent>
-        </Card>
-
-        {/* Resource Context Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Resources</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Add resource context fields */}
-          </CardContent>
-        </Card>
-
-        {/* Assessment Context Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Assessment</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Add assessment context fields */}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Action buttons */}
-      <div className="flex gap-4 pt-4">
-        <Button 
-          variant="outline"
-          onClick={handleCancel}
-          className="flex-1"
-        >
-          Cancel
-        </Button>
-        <Button 
-          onClick={handleSave} 
-          disabled={updateNode.status === 'pending'}
-          className="flex-1"
-        >
-          Save Changes
-        </Button>
-      </div>
-    </div>
-  );
-};
-```
-
-3. Update the API endpoint schema (if using tRPC):
-
-```typescript
-// /src/server/api/routers/curriculum.ts
-
-export const curriculumRouter = createTRPCRouter({
-  updateNode: protectedProcedure
-    .input(z.object({
-      id: z.string(),
-      title: z.string(),
-      description: z.string().optional(),
-      type: z.enum(['CHAPTER', 'TOPIC', 'SUBTOPIC']),
-      parentId: z.string().optional(),
-      learningContext: z.object({
-        objectives: z.array(z.string()).optional(),
-        duration: z.string().optional(),
-        prerequisites: z.array(z.string()).optional(),
-        keyTerms: z.array(z.string()).optional(),
-        outcomes: z.array(z.string()).optional(),
-      }).optional(),
-      resourceContext: z.object({
-        materials: z.object({
-          primary: z.array(z.string()).optional(),
-          supplementary: z.array(z.string()).optional(),
-        }).optional(),
-        references: z.array(z.string()).optional(),
-      }).optional(),
-      assessmentContext: z.object({
-        methods: z.array(z.string()).optional(),
-        criteria: z.array(z.string()).optional(),
-        weightage: z.number().optional(),
-      }).optional(),
-    }))
+// src/server/api/routers/building.ts
+export const buildingRouter = createTRPCRouter({
+  create: protectedProcedure
+    .input(buildingSchema)
     .mutation(async ({ ctx, input }) => {
       // Implementation
     }),
+  
+  getAll: protectedProcedure
+    .query(async ({ ctx }) => {
+      // Implementation
+    }),
+  
+  // Additional endpoints
+});
+
+// Similar routers for Floor, Wing, and enhanced Room management
+```
+
+3. New Components Required:
+
+```typescript
+// src/components/dashboard/building/BuildingManagement.tsx
+export const BuildingManagement: FC = () => {
+  // Implementation
+};
+
+// src/components/dashboard/building/BuildingForm.tsx
+export const BuildingForm: FC<BuildingFormProps> = () => {
+  // Implementation
+};
+
+// Similar components for Floor and Wing management
+```
+
+4. Enhanced Classroom Form:
+
+```typescript
+// src/components/dashboard/classroom/EnhancedClassroomForm.tsx
+export const EnhancedClassroomForm: FC<ClassroomFormProps> = ({
+  isOpen,
+  onClose,
+  classroomId,
+}) => {
+  const [selectedCampus, setSelectedCampus] = useState<string>("");
+  const [selectedBuilding, setSelectedBuilding] = useState<string>("");
+  const [selectedFloor, setSelectedFloor] = useState<string>("");
+  const [selectedWing, setSelectedWing] = useState<string>("");
+  
+  // Form implementation with new fields
+};
+```
+
+5. Implementation Steps:
+
+a. Database Migration:
+```bash
+# Generate migration
+npx prisma generate
+npx prisma migrate dev --name add_building_structure
+
+# Apply migration
+npx prisma migrate deploy
+```
+
+b. API Layer:
+- Implement new routers
+- Update existing classroom router
+- Add validation schemas
+- Implement error handling
+
+c. Frontend Components:
+- Create new management components
+- Update existing forms
+- Implement hierarchical selectors
+- Add validation
+
+d. Integration:
+- Update classroom scheduling
+- Enhance resource management
+- Update reporting system
+
+6. Testing Plan:
+
+```typescript
+// src/__tests__/building/BuildingManagement.test.tsx
+describe('BuildingManagement', () => {
+  it('should create new building', () => {
+    // Test implementation
+  });
+  
+  // Additional tests
 });
 ```
 
-This implementation:
-- Maintains backward compatibility with existing code
-- Adds new fields as optional properties
-- Uses existing UI components and patterns
-- Follows the established type system
-- Keeps the existing tree structure intact
-- Allows gradual adoption of new fields
+7. Documentation:
 
-The changes are modular and don't affect the existing functionality while providing the foundation for enhanced curriculum content management.
+```markdown
+# Building Management
+
+## Overview
+The building management system provides a hierarchical structure for organizing physical spaces within a campus.
+
+## Components
+- Building Management
+- Floor Management
+- Wing Management
+- Enhanced Room Management
+
+## Usage
+[Documentation details]
+```
+
+Would you like me to elaborate on any specific part of this implementation plan?
