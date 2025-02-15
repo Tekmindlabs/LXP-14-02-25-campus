@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { roomSchema, roomIdSchema, updateRoomSchema } from "../validation/room";
 import { TRPCError } from "@trpc/server";
-import { RoomStatus, RoomType } from "@prisma/client";
+import { RoomStatus, RoomType, Prisma } from "@prisma/client";
 import { RoomSchedulingService } from "../../services/RoomSchedulingService";
 import { RoomResourceService } from "../../services/RoomResourceService";
 import { RoomReportingService } from "../../services/RoomReportingService";
@@ -163,10 +163,14 @@ export const roomRouter = createTRPCRouter({
 			dayOfWeek: z.number().min(1).max(7),
 		}))
 		.query(async ({ input }) => {
+			// Convert JavaScript Date to Prisma DateTime
+			const startDateTime = new Date(input.startTime);
+			const endDateTime = new Date(input.endTime);
+			
 			return schedulingService.checkRoomAvailability(
 				input.roomId,
-				input.startTime,
-				input.endTime,
+				startDateTime,
+				endDateTime,
 				input.dayOfWeek
 			);
 		}),

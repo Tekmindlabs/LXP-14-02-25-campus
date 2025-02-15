@@ -1,9 +1,9 @@
 import { PrismaClient, Room, Period } from "@prisma/client";
+import { TRPCError } from "@trpc/server";
 
 type RoomWithPeriods = Room & {
 	periods: Period[];
 };
-import { TRPCError } from "@trpc/server";
 
 const prisma = new PrismaClient();
 
@@ -54,10 +54,15 @@ export class RoomReportingService {
 		const periods = await prisma.period.findMany({
 			where: {
 				startTime: { gte: timeRange.startDate },
-				endTime: { lte: timeRange.endDate }
+				endTime: { lte: timeRange.endDate },
+				roomId: { not: null }
 			},
 			include: {
-				room: true
+				room: {
+					include: {
+						periods: true
+					}
+				}
 			}
 		});
 
@@ -65,22 +70,24 @@ export class RoomReportingService {
 		const usageByDay: Record<number, number> = {};
 		const usageByTimeSlot: Record<string, number> = {};
 		const roomUsage: Record<string, { hours: number; periodCount: number }> = {};
-for (const period of periods) {
-	const hours = (period.endTime.getTime() - period.startTime.getTime()) / (1000 * 60 * 60);
-	
-	usageByDay[period.dayOfWeek] = (usageByDay[period.dayOfWeek] || 0) + hours;
-	
-	const timeSlot = period.startTime.getHours().toString().padStart(2, '0');
-	usageByTimeSlot[timeSlot] = (usageByTimeSlot[timeSlot] || 0) + 1;
 
-	if (!roomUsage[period.roomId]) {
-		roomUsage[period.roomId] = { hours: 0, periodCount: 0 };
-	}
-	roomUsage[period.roomId].hours += hours;
-	roomUsage[period.roomId].periodCount += 1;
-}
+		for (const period of periods) {
+			if (!period.roomId || !period.room) continue;
 
+			const hours = (period.endTime.getTime() - period.startTime.getTime()) / (1000 * 60 * 60);
+			
+			usageByDay[period.dayOfWeek] = (usageByDay[period.dayOfWeek] || 0) + hours;
+			
+			const timeSlot = period.startTime.getHours().toString().padStart(2, '0');
+			usageByTimeSlot[timeSlot] = (usageByTimeSlot[timeSlot] || 0) + 1;
+
+			if (!roomUsage[period.roomId]) {
+				roomUsage[period.roomId] = { hours: 0, periodCount: 0 };
+			}
+			roomUsage[period.roomId].hours += hours;
+			roomUsage[period.roomId].periodCount += 1;
 		}
+
 
 		const totalHours = Object.values(usageByDay).reduce((sum, hours) => sum + hours, 0);
 		const totalPeriods = periods.length;
@@ -95,8 +102,9 @@ for (const period of periods) {
 						where: { id: roomId },
 						include: { periods: true }
 					});
+					if (!room) throw new TRPCError({ code: 'NOT_FOUND', message: 'Room not found' });
 					return {
-						room: room as RoomWithPeriods,
+						room,
 						hours: usage.hours,
 						periodCount: usage.periodCount
 					};
